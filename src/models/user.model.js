@@ -10,6 +10,7 @@ const userSchema = new Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      // For faster search and retrieval of user by username, we can add an index on the username field
       index: true,
     },
     email: {
@@ -54,7 +55,7 @@ const userSchema = new Schema(
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
 
-  this.password = bcrypt.hash(this.password, 10);
+  this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
@@ -67,7 +68,7 @@ userSchema.methods.isPasswordCorrect = async function (password) {
 // JWT Token generation methods
 
 userSchema.methods.generateAccessToken = function () {
-  jwt.sign(
+  return jwt.sign(
     {
       _id: this._id,
       email: this.email,
@@ -80,7 +81,7 @@ userSchema.methods.generateAccessToken = function () {
 };
 
 userSchema.methods.generateRefreshToken = function () {
-  jwt.sign(
+  return jwt.sign(
     {
       _id: this._id,
     },

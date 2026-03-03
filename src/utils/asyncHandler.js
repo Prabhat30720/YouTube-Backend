@@ -3,7 +3,7 @@
 // asyncHandler function using Promise
 
 const asyncHandler = (requestHandler) => {
-  (req, res, next) => {
+  return (req, res, next) => {
     // if promise is resolved, then execute the function otherwise catch the error and pass it to next middleware
     Promise.resolve(requestHandler(req, res, next)).catch((err) => next(err));
   };

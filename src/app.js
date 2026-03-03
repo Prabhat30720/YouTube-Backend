@@ -32,4 +32,16 @@ app.use(express.static("public"));
 
 app.use(cookieParser());
 
+// Routes
+
+import userRouter from "./routes/user.routes.js";
+
+// Routes declaration
+
+// app.use() - middleware to handle the routes, because roters are are written in separate files and we need to use them in app.js
+
+app.use("/api/v1/users", userRouter); // here control will pass to user.routes.js file
+
+//Route - http://localhost:8000/api/v1/users/register
+
 export { app };
