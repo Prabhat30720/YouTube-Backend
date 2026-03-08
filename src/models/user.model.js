@@ -53,13 +53,13 @@ const userSchema = new Schema(
 // Hash password before saving the user with the help of mongoose pre save hook middleware
 
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password")) return next;
 
   this.password = await bcrypt.hash(this.password, 10);
-  next();
+  next;
 });
 
-// Add a method to check if password is valid or not by using methods on userSchema
+// Add a method to check if password is valid or not, by using methods on userSchema
 
 userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);

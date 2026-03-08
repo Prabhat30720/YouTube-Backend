@@ -12,14 +12,20 @@ const uploadOnCloudinary = async (localFilePath) => {
   try {
     if (!localFilePath) return null;
 
-    // upload the file on cloudinary
+    // upload the file (avatar and coverImage file) on cloudinary
 
     const response = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "auto",
     });
 
     // File has been uploaded on cloudinary sucessfully
-    console.log("File is uploaded on cloudinary successfully", response.url);
+    // console.log("File is uploaded on cloudinary successfully", response.url);
+
+    console.log("Clodinary response:", response);
+
+    // Once the file is uploaded on cloudinary, we can remove that file from our local storage as we don't need it anymore.
+
+    fs.unlinkSync(localFilePath);
 
     return response;
   } catch (error) {

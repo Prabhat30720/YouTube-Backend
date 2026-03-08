@@ -28,7 +28,7 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 
 app.use(express.static("public"));
 
-// To handle the cookies sent from frontend or user's browser
+// To handle the cookies sent from frontend or user's browser e.g. access token and refresh token sent from frontend in cookies, we need to use cookie parser middleware to parse the cookies and make them available in req.cookies object in our route handlers or middlewares.
 
 app.use(cookieParser());
 
