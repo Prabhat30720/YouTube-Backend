@@ -3,6 +3,7 @@ import {
   registerUser,
   loginUser,
   logoutUser,
+  refreshAccessToken,
 } from "../controllers/user.controller.js";
 
 import { verifyJWT } from "../middlewares/auth.middleware.js";
@@ -39,6 +40,8 @@ router.route("/login").post(loginUser);
 // secured routes - Adding the verifyJWT middleware to the protected routes, so that only authenticated users can access those routes to log out the user
 
 router.route("/logout").post(verifyJWT, logoutUser);
+
+router.route("/refresh-token").post(refreshAccessToken);
 
 export default router;
 

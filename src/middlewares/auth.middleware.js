@@ -21,18 +21,19 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
 
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET); // verify the access token with the secret key
 
+    // From where this _id is coming in the decoded token, we will set this _id in the payload of the access token when we are generating the access token in the User model, so that we can use this _id to find the user in the database and attach the user object to the request object, so that we can access the user information in the protected routes.
+
     const user = await User.findById(decodedToken?._id).select(
       "-password -refreshToken"
     ); // find the user in the database with the decoded token's _id
 
     if (!user) {
-      // TODO: discussion about frontend
       throw new ApiError(401, "Invalid token, user does not exist");
     }
 
     // if user exists, then we will attach the user object to the request object, so that we can access the user information in the protected routes.
 
-    // Add an object to req name user, name can be anything
+    // Add an object to req as named user, name can be anything
 
     req.user = user;
     next();
