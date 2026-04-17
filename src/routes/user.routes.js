@@ -66,7 +66,9 @@ router
 
 // Data is coming from Params
 
-router.route("/c/:username").get(verifyJWT, getUserChannelProfile);
+router
+  .route("/channel-profile/:username")
+  .get(verifyJWT, getUserChannelProfile);
 
 router.route("/watch-history").get(verifyJWT, getWatchHistory);
 

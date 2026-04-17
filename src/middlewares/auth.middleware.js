@@ -21,7 +21,7 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
 
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET); // verify the access token with the secret key
 
-    // From where this _id is coming in the decoded token, we will set this _id in the payload of the access token when we are generating the access token in the User model, so that we can use this _id to find the user in the database and attach the user object to the request object, so that we can access the user information in the protected routes.
+    // From where this _id is coming in the decoded token, we had set this _id in the payload of the access token when we were generating the access token in the User model, so that we can use this _id to find the user in the database and attach the user object to the request object, so that we can access the user information in the protected routes.
 
     const user = await User.findById(decodedToken?._id).select(
       "-password -refreshToken"

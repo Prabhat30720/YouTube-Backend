@@ -4,28 +4,29 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 // Method to generate access and refresh tokens.
 
 const generateAccessAndRefreshTokens = async (userId) => {
-  // Here, user is nothing but a mongoose object with user details
-
-  const user = await User.findById(userId);
-  const accessToken = user.generateAccessToken();
-  const refreshToken = user.generateRefreshToken();
-
-  // storing the generated reefresh token in user database, so that user doesn't need to login multiple times, even if the access token gets expired.
-
-  // Here we are saving the refresh token in database, not at the time of registering the user, because we want to generate the refresh token only when the user logs in, and we want to save the refresh token in database only when the user logs in, so that we can invalidate the refresh token when the user logs out, by removing the refresh token from database, so that user will be logged out and cannot use the refresh token to get new access token.
-
-  user.refreshtoken = refreshToken;
-
-  // saving the refresh token in user database without running the validation because we are not updating any user details here, we are just saving the refresh token in database.
-
-  await user.save({ validateBeforeSave: false });
-
-  return { accessToken, refreshToken };
   try {
+    // Here, user is nothing but a mongoose object with user details
+
+    const user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    // storing the generated refresh token in user database, so that user doesn't need to login multiple times, even if the access token gets expired.
+
+    // Here we are saving the refresh token in database, not at the time of registering the user, because we want to generate the refresh token only when the user logs in, and we want to save the refresh token in database only when the user logs in, so that we can validate the refresh token when the user logs out, by removing the refresh token from database, so that user will be logged out and cannot use the refresh token to get new access token.
+
+    user.refreshToken = refreshToken;
+
+    // saving the refresh token in user database without running the validation because we are not updating any user details here, we are just saving the refresh token in database.
+
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
   } catch (error) {
     throw new ApiError(
       500,
@@ -93,6 +94,10 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Avatar is required");
   }
 
+  if (!coverImagelocalPath) {
+    throw new ApiError(400, "Cover Image is required");
+  }
+
   // upload them to cloudinary, avatar
 
   // Why await because uploading the image on clodinary or any third party service is an asynchronous operation, it may take some time, so we will wait for the response from cloudinary before moving to the next line of code.
@@ -116,6 +121,8 @@ const registerUser = asyncHandler(async (req, res) => {
     coverImage: coverImage?.url || "",
     email,
     password,
+    // save refresh Token when the user is logged in not at time on registering.
+    refreshToken: "",
     username: username.toLowerCase(),
   });
 
@@ -221,10 +228,10 @@ const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: {
-        // set the refresh token to undefined in database, so that user will be logged out
+      $unset: {
+        // When we set flag for refreshToken to true, we are removing the refreshToken from the database, so that user will be logged out and cannot use the refresh token to get new access token.
 
-        refreshToken: undefined,
+        refreshToken: 1,
       },
     },
     {
@@ -255,7 +262,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   // fetch the refresh token from cookies or from request body, because in some cases like mobile application or third party client, cookies may not be supported, so we can also allow the client to send the refresh token in request body.
 
   const incomingRefreshToken =
-    req.cookies?.refreshToken || req.body?.refreshToken;
+    req.cookies.refreshToken || req.body.refreshToken;
 
   if (!incomingRefreshToken) {
     throw new ApiError(
@@ -265,12 +272,14 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 
   try {
+    // refresh token which is coming from user, it's in encoded format and refresh toekn which is stored in the database is in raw format, so we need to decode the refresh token, so that we can compare it with the refresh token which is stored in the database.
+
     const decodedToken = jwt.verify(
       incomingRefreshToken,
       process.env.REFRESH_TOKEN_SECRET
     );
 
-    // find the user in the database with the decoded token's _id
+    // find the user in the database with the decoded token which has the access to _id that we have to unwrap in the decoded token
 
     const user = await User.findById(decodedToken?._id);
 
@@ -305,7 +314,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(
           200,
-          { accessToken, newRefresh },
+          { accessToken, refreshToken: newRefreshToken },
           "Access Token Refreshed Successfully"
         )
       );
@@ -391,9 +400,9 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 
   // TODO: Delete old Image from cloudinary before uploading the new image, to save the storage space on cloudinary, and also to avoid the unused images on cloudinary.
 
-  // delete the old avatar file from cloudinary, if any.
-
   // upload the avatar file on cloudinary and get the url of the uploaded file.
+
+  // delete the old avatar file from cloudinary, if any.
 
   const avatar = await uploadOnCloudinary(avatarLocalPath);
 
@@ -461,6 +470,8 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 
   const { username } = req.params;
 
+  // const { username } = req.body;
+
   if (!username?.trim()) {
     throw new ApiError(400, "Username is missing.");
   }
@@ -470,24 +481,25 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
   const channel = await User.aggregate([
     {
       $match: {
-        username: username.toLowerCase(),
+        username: username?.toLowerCase(),
       },
     },
     {
       // Find out the number of subscriber of that channel
 
       $lookup: {
-        from: "Subscription",
+        // Here the table name is always be in lowercase and in pural forrmat in mongoDB.
+        from: "subscriptions",
         localField: "_id",
         foreignField: "channel",
         as: "subscribers",
       },
     },
     {
-      // Find the number of channels is subscribed by that channel
+      // Find the number of channels are subscribed by that channel
 
       $lookup: {
-        from: "Subscription",
+        from: "subscriptions",
         localField: "_id",
         foreignField: "subscriber",
         as: "subscribedTo",
@@ -509,6 +521,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         isSubscribed: {
           $cond: {
             if: {
+              // check if the logged in user id is present in the subscribers list of that channel
               $in: [req.user?._id, "$subscribers.subscriber"],
             },
             then: true,
@@ -553,21 +566,21 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     },
     {
       $lookup: {
-        from: "Video",
-        localField: "watchHistiory",
+        from: "videos",
+        localField: "watchHistory",
         foreignField: "_id",
-        as: "watchHistoty",
+        as: "watchHistory",
         // Writing a sub pipeline to get the owner of the video
 
         pipeline: [
           {
             $lookup: {
-              from: "User",
+              from: "users",
               localField: "owner",
               foreignField: "_id",
               as: "owner",
 
-              // showing the specific fields of the owner, we don't want to show all the fields
+              // showing the specific fields of the owner(user), we don't want to show all the fields
               pipeline: [
                 {
                   $project: {
